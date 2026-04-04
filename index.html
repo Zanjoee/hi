@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Indie+Flower&display=swap" rel="stylesheet">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>hi</title>
+  <link rel="stylesheet" href="styles.css">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=Pinyon+Script&display=swap" rel="stylesheet">
+  <style>
+    
+  </style>
+</head>
+<body>
+
+<audio id="bgm" src="bg.mp3" loop preload="auto"></audio>
+
+<div id="garden">
+  <div class="blob blob-1"></div>
+  <div class="blob blob-2"></div>
+  <div class="blob blob-3"></div>
+  <div class="blob blob-4"></div>
+</div>
+
+<div id="landing">
+  <span class="click-text">click anywhere</span>
+</div>
+
+<div id="prelude">
+  <canvas id="flower-canvas"></canvas>
+  <div id="hiii-text">Helloowww</div>
+</div>
+
+<div id="stage">
+  <div id="bouquet-wrap">
+    <img id="bouquet-img" src="flowers.png" alt="">
+    <div id="envelope-wrap">
+      <div id="env-body">
+        <div id="env-flap"></div>
+        <div class="wax-seal">🌸</div>
+      </div>
+      <div class="env-hint">open me</div>
+    </div>
+  </div>
+</div>
+
+<div id="letter-overlay">
+  <div id="letter">
+    <div class="letter-header-strip"></div>
+    <button class="close-btn" id="close-letter">✕</button>
+    <div class="letter-body">
+      <p></p>
+    </div>
+    <div class="letter-divider">— ❀ —</div>
+    <div class="letter-sign">with all of it, sincerely yours</div>
+  </div>
+</div>
+
+<div id="music-hint">♪ playing for you</div>
+
+<script type="x-shader/x-fragment" id="frag">
+#define PI 3.14159265359
+uniform float u_ratio;
+uniform vec2 u_cursor;
+uniform float u_stop_time;
+uniform float u_clean;
+uniform vec2 u_stop_randomizer;
+uniform sampler2D u_texture;
+varying vec2 vUv;
+vec3 mod289(vec3 x){return x-floor(x*(1./289.))*289.;}
+vec2 mod289(vec2 x){return x-floor(x*(1./289.))*289.;}
+vec3 permute(vec3 x){return mod289(((x*34.)+1.)*x);}
+float snoise(vec2 v){
+  const vec4 C=vec4(0.211324865405187,0.366025403784439,-0.577350269189626,0.024390243902439);
+  vec2 i=floor(v+dot(v,C.yy)); vec2 x0=v-i+dot(i,C.xx);
+  vec2 i1=(x0.x>x0.y)?vec2(1.,0.):vec2(0.,1.);
+  vec4 x12=x0.xyxy+C.xxzz; x12.xy-=i1; i=mod289(i);
+  vec3 p=permute(permute(i.y+vec3(0.,i1.y,1.))+i.x+vec3(0.,i1.x,1.));
+  vec3 m=max(.5-vec3(dot(x0,x0),dot(x12.xy,x12.xy),dot(x12.zw,x12.zw)),0.);
+  m=m*m; m=m*m;
+  vec3 x=2.*fract(p*C.www)-1.; vec3 h=abs(x)-.5; vec3 ox=floor(x+.5); vec3 a0=x-ox;
+  m*=1.79284291400159-.85373472095314*(a0*a0+h*h);
+  vec3 g; g.x=a0.x*x0.x+h.x*x0.y; g.yz=a0.yz*x12.xz+h.yz*x12.yw;
+  return 130.*dot(m,g);
+}
+float flower(vec2 p,float n,float ang,float outline){
+  ang*=3.; p=vec2(p.x*cos(ang)-p.y*sin(ang),p.x*sin(ang)+p.y*cos(ang));
+  float a=atan(p.y,p.x);
+  float fss=pow(abs(sin(a*n)),.4)+.25;
+  float size=.03+u_stop_randomizer[0]*.1;
+  float frs=pow(length(p)/size,2.); frs-=.1*sin(8.*a); frs=max(.1,frs);
+  frs+=smoothstep(0.,.03,-p.y+.2*abs(p.x));
+  float gt=step(.25,u_stop_time)*pow(u_stop_time,.3);
+  float fs=1.-smoothstep(0.,fss,outline*frs/gt); fs*=(1.-step(1.,gt));
+  return fs;
+}
+float stem(vec2 p,vec2 uv,float w,float ang){
+  w=max(.004,w); float xo=p.y*sin(ang); xo*=pow(3.*uv.y,2.); p.x-=xo;
+  float chn=.5*snoise(2.*uv*u_stop_randomizer[0]);
+  chn*=pow(dot(p.y,p.y),.6); chn*=pow(dot(uv.y,uv.y),.3); p.x+=chn;
+  float ss=smoothstep(-w,0.,p.x)*(1.-smoothstep(0.,w,p.x));
+  float gt=1.-smoothstep(0.,.2,u_stop_time);
+  ss*=smoothstep(0.,pow(gt,.5),.03-p.y); ss*=(1.-step(.17,u_stop_time));
+  return ss;
+}
+void main(){
+  vec3 base=texture2D(u_texture,vUv).xyz;
+  vec2 uv=vUv; uv.x*=u_ratio;
+  vec2 c=vUv-u_cursor.xy; c.x*=u_ratio;
+  vec3 sc=vec3(.1+u_stop_randomizer[0]*.6,.6,.2);
+  vec3 fc=vec3(.6+.5*u_stop_randomizer[1],.1,.9-.5*u_stop_randomizer[1]);
+  float ang=.5*(u_stop_randomizer[0]-.5);
+  float ss=stem(c,uv,.003,ang)+stem(c+vec2(0.,.2+.5*u_stop_randomizer[0]),uv,.003,ang);
+  float sm=1.-stem(c,uv,.004,ang); sm-=stem(c+vec2(0.,.2+.5*u_stop_randomizer[0]),uv,.004,ang);
+  float ao=-(2.*step(0.,ang)-1.)*.1*u_stop_time;
+  float fbs=flower(c,1.+floor(u_stop_randomizer[0]*2.),ang+ao,1.5);
+  float fbm=1.-flower(c,1.+floor(u_stop_randomizer[0]*2.),ang+ao,1.6);
+  float ffs=flower(c,2.+floor(u_stop_randomizer[1]*2.),ang,1.);
+  float ffm=1.-flower(c,2.+floor(u_stop_randomizer[1]*2.),ang,.95);
+  vec3 col=base; col*=sm; col*=fbm; col*=ffm;
+  col+=ss*sc; col+=fbs*(fc+vec3(0.,.8*u_stop_time,0.)); col+=ffs*fc;
+  col.r*=1.-.5*fbs*ffs; col.b*=1.-fbs*ffs;
+  col*=u_clean;
+  float hasContent = min(1.0, col.r+col.g+col.b);
+  gl_FragColor=vec4(col, hasContent);
+}
+</script>
+<script type="x-shader/x-vertex" id="vert">
+varying vec2 vUv;
+void main(){ vUv=uv; gl_Position=vec4(position,1.); }
+</script>
+
+<script src="script.js" type="module"></script>
+</body>
+</html>
